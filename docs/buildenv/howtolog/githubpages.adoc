@@ -1,0 +1,17 @@
+:toc: left
+:toclevels: 3
+:toc-title: 目次
+:sectnums:
+
+:icons: font
+:sectanchors:
+:sectlinks:
+
+= GitHub Pages × AsciiDoc で作業ログ環境を構築する
+
+NOTE: 本手順の実行環境は以下の通り。 +
+OS : Windows11 64bit +
+Editor : Visual Studio Code 1.77.3
+
+include::howtoasciidoc.adoc[leveloffset=+1]
+include::deployopages.adoc[leveloffset=+1]
