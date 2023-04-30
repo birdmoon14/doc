@@ -1,0 +1,11 @@
+= GitHub Pages × AsciiDoc で作業ログ環境を構築する
+
+:toc:
+
+NOTE: 
+環境は以下の通り。 +
+OS : Windows11 64bit
+Editor : Visual Studio Code 1.77.3
+
+== AsciiDocインストール
+
