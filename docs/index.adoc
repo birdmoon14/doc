@@ -1,4 +1,4 @@
 = 環境構築など諸々書いていく
 
 == 環境
-- link:buildenv/githubpages.adoc[GitHub Pagesでの作業ログ環境]
+- link:buildenv/githubpages.html[GitHub Pagesでの作業ログ環境]
