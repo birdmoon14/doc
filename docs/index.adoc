@@ -8,6 +8,6 @@
 = 環境構築など諸々書いていく
 
 == 環境
-- link:buildenv/githubpages.html[GitHub Pagesでの作業ログ環境]
+- link:buildenv/howtolog/githubpages.html[GitHub Pagesでの作業ログ環境]
 - VScodeおすすめ拡張機能（作成中）
 - AsciiDoc執筆ノウハウ（作成中）
