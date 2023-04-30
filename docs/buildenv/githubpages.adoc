@@ -20,25 +20,25 @@ https://rubyinstaller.org/downloads/ - 公式サイト +
 今回はRuby+Devkit 3.2.2-1(x64)をダウンロードした。
 
 [caption="Ruby公式サイト",link=https://rubyinstaller.org/downloads/]
-image::../screenshot-ruby-download.png[]
+image::../../screenshot-ruby-download.png[]
 
 ==== Rubyをインストール
 
-image::../screenshot-ruby-install-01.png[]
+image::../../images/screenshot-ruby-install-01.png[]
  「I accept the License」を選択して「Next」
 
-image::../screenshot-ruby-install-04.png[]
+image::../../screenshot-ruby-install-04.png[]
  インストールフォルダを選択。PATHも通してくれる。
 
 WARNING: デフォルトで設定されている値がドライブ名だけ（ex.「D」）になっている場合があるため、インストールフォルダはよく確認（必要な場合は作成）して選択すること。
 
-image::../screenshot-ruby-install-05.png[]
+image::../../screenshot-ruby-install-05.png[]
  すべて選択されているので、問題がなければそのまま次へ
 
-image::../screenshot-ruby-install-06.png[]
+image::../../screenshot-ruby-install-06.png[]
  インストール完了
 
-image::../screenshot-ruby-install-07.png[]
+image::../../screenshot-ruby-install-07.png[]
  ターミナルでもバージョンを確認できた
 
 
