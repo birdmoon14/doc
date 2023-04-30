@@ -1,3 +1,10 @@
+:toc: left
+:toclevels: 2
+:toc-title: 目次
+:sectnums:
+
+:icons: font
+
 = 環境構築など諸々書いていく
 
 == 環境

@@ -3,6 +3,8 @@
 :toc-title: 目次
 :sectnums:
 
+:icons: font
+
 = GitHub Pages × AsciiDoc で作業ログ環境を構築する
 
 NOTE: 本手順の実行環境は以下の通り。 +
