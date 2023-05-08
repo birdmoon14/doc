@@ -15,25 +15,25 @@ https://rubyinstaller.org/downloads/ - 公式サイト +
 今回はRuby+Devkit 3.2.2-1(x64)をダウンロードした。
 
 [caption="Ruby公式サイト",link=https://rubyinstaller.org/downloads/]
-image::./images/screenshot-ruby-download.png[]
+image::https://github.com/birdmoon14/doc/blob/main/docs/buildenv/howtolog/images/screenshot-ruby-download.png?raw=true[]
 
 ==== Rubyをインストール
 
-image::./images/screenshot-ruby-install-01.png[]
+image::https://github.com/birdmoon14/doc/blob/main/docs/buildenv/howtolog/images/screenshot-ruby-install-01.png?raw=true[]
  「I accept the License」を選択して「Next」
 
-image::./images/screenshot-ruby-install-04.png[]
+image::https://github.com/birdmoon14/doc/blob/main/docs/buildenv/howtolog/images/screenshot-ruby-install-04.png?raw=true[]
  インストールフォルダを選択。PATHも通してくれる。
 
 WARNING: デフォルトで設定されている値がドライブ名だけ（ex.「D」）になっている場合があるため、インストールフォルダはよく確認（必要な場合は作成）して選択すること。
 
-image::./images/screenshot-ruby-install-05.png[]
+image::https://github.com/birdmoon14/doc/blob/main/docs/buildenv/howtolog/images/screenshot-ruby-install-05.png?raw=true[]
  すべて選択されているので、問題がなければそのまま次へ
 
-image::./images/screenshot-ruby-install-06.png[]
+image::https://github.com/birdmoon14/doc/blob/main/docs/buildenv/howtolog/images/screenshot-ruby-install-06.png?raw=true[]
  インストール完了
 
-image::./images/screenshot-ruby-install-07.png[]
+image::https://github.com/birdmoon14/doc/blob/main/docs/buildenv/howtolog/images/screenshot-ruby-install-07.png?raw=true[]
  ターミナルでもバージョンを確認できた
 
 === AsciiDocの導入

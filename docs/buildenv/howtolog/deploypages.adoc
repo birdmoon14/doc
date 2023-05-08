@@ -11,10 +11,10 @@
 WARNING: 自分は既にGitHubアカウントを持っていたため手順は割愛する。
 
 ==== GitHubにリポジトリを追加する
-image::./images/screenshot-github-01.png[]
+image::https://github.com/birdmoon14/doc/blob/main/docs/buildenv/howtolog/images/screenshot-github-01.png?raw=true[]
  RepositoriesのNEWを選択
 
-image::./images/screenshot-github-02.png[]
+image::https://github.com/birdmoon14/doc/blob/main/docs/buildenv/howtolog/images/screenshot-github-02.png?raw=true[]
  Repository名は「doc」とした。
  公開するためpublicとした。
  READMEファイルはお好み（つけていることの方が多い）
@@ -24,7 +24,7 @@ WARNING: 通常はブランチを作成して編集するが、今回は個人�
 ※master→mainへの名称変更があったらしい
 
 === 編集環境（VScode）の構築
-image::./images/screenshot-github-03.png[]
+image::https://github.com/birdmoon14/doc/blob/main/docs/buildenv/howtolog/images/screenshot-github-03.png?raw=true[]
 GitHubからレポジトリのURLをコピーする
 
 ターミナル（コマンドプロンプト）を作業フォルダで開き、以下のコマンドでリポジトリをcloneする
