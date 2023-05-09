@@ -1,0 +1,52 @@
+:toc: left
+:toclevels: 3
+:toc-title: 目次
+:sectnums:
+
+:icons: font
+:sectanchors:
+:sectlinks:
+
+= intelliJでSpringBoot環境を構築する
+
+== intelliJインストール
+
+link:https://www.jetbrains.com/ja-jp/idea/download/#section=windows[公式サイト]からインストーラをダウンロードする +
+Ultimateを選択
+
+image::https://github.com/birdmoon14/doc/blob/main/docs/buildenv/springboot/images/intelliJ-001.png?raw=true[]
+
+image::https://github.com/birdmoon14/doc/blob/main/docs/buildenv/springboot/images/intelliJ-002.png?raw=true[]
+「Next」を押下
+
+image::https://github.com/birdmoon14/doc/blob/main/docs/buildenv/springboot/images/intelliJ-003.png?raw=true[]
+インストールフォルダにこだわりがなければそのまま「Next」を押下
+
+image::https://github.com/birdmoon14/doc/blob/main/docs/buildenv/springboot/images/intelliJ-004.png?raw=true[]
+PATHを通したかったので「Add "bin" folder to the PATH」にチェック
+
+image::https://github.com/birdmoon14/doc/blob/main/docs/buildenv/springboot/images/intelliJ-005.png?raw=true[]
+「install」を押下
+
+image::https://github.com/birdmoon14/doc/blob/main/docs/buildenv/springboot/images/intelliJ-006.png?raw=true[]
+すぐ再起動する場合は「Reboot now」を選択して「Finish」を押下
+
+== intelliJライセンス認証
+
+起動するとライセンス認証を求められる
+
+image::https://github.com/birdmoon14/doc/blob/main/docs/buildenv/springboot/images/intelliJ-007.png?raw=true[]
+
+今回はすでに認証したアカウントがあるので、「JBAccount」を選択し「Log In to JetBrains Account…」からログインする
+
+image::https://github.com/birdmoon14/doc/blob/main/docs/buildenv/springboot/images/intelliJ-008.png?raw=true[]
+
+ブラウザでログイン画面が開く +
+UsernameとPasswordを入力する
+
+image::https://github.com/birdmoon14/doc/blob/main/docs/buildenv/springboot/images/intelliJ-009.png?raw=true[]
+
+サインインするとIntelliJの画面に戻る
+画面にライセンス情報が表示されていればOK
+
+image::https://github.com/birdmoon14/doc/blob/main/docs/buildenv/springboot/images/intelliJ-010.png?raw=true[]

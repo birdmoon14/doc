@@ -9,5 +9,6 @@
 
 == 環境
 - link:buildenv/howtolog/githubpages.html[GitHub Pagesでの作業ログ環境]
-- VScodeおすすめ拡張機能（作成中）
-- AsciiDoc執筆ノウハウ（作成中）
+- link:buildenv/springboot/intelliJ.html[intelliJ環境構築]
+// TODO: VScodeおすすめ拡張機能（作成中）
+// TODO: AsciiDoc執筆ノウハウ（作成中）
