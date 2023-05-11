@@ -5,10 +5,13 @@
 
 :icons: font
 
-= 環境構築など諸々書いていく
+= 作業メモ
 
-== 環境
+== 環境構築
 - link:buildenv/howtolog/githubpages.html[GitHub Pagesでの作業ログ環境]
 - link:buildenv/springboot/intelliJ.html[intelliJ環境構築]
 // TODO: VScodeおすすめ拡張機能（作成中）
 // TODO: AsciiDoc執筆ノウハウ（作成中）
+
+== チュートリアル実施
+- SpringBootチュートリアル
