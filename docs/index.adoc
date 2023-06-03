@@ -22,6 +22,14 @@
 
 |===
 
+== 困っていること
+* Asciidoc関連
+** ソースコードなど長い内容を表示する際に、高さ固定できない（HTMLで書くしかない？）
+
+* SpringBoot関連
+** DozerBeanMapperをAutoWiredできない（Dozer-Springがうまく動作していない？）
+
+
 == その他
 
 * link:buildenv/howtolog/asciidoccs.html[AsciiDoc個人的チートシート]

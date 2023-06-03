@@ -25,6 +25,10 @@
 
 === ソースコード
 
+ソースコードを利用する際はシンタックスハイライトの設定を入れる。 +
+文書の頭に以下を設定 +
+`:source-highlighter: highlightjs`
+
 ==== インラインコード
 
 インラインコードは``で囲む（前後に改行か半角スペースが必要）
@@ -46,7 +50,13 @@
 
 
 == 困ったこと編
-
+=== 未解決
+* 長いソースコードを貼るとページが冗長になる。 +
+高さを決めてスクロールできると良いが方法見つからず。 +
+やりたければソースコード部分だけHTMLで書くしかなさそう。
 
 == 参考
 * link:https://takumon.github.io/asciidoc-syntax-quick-reference-japanese-translation/[Asciidoctor文法クイックリファレンス（日本語版）]
+
+== 戻る
+link:https://birdmoon14.github.io/doc/index.html[TOP PAGE]

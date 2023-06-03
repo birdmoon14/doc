@@ -7,6 +7,8 @@
 :sectanchors:
 :sectlinks:
 
+:source-highlighter: highlightjs
+
 = SpringBootチュートリアル
 
 == プロジェクト作成
@@ -149,7 +151,1014 @@ public class Todo implements Serializable {
 }
 ----
 
-Getter,Setter,すべてのフィールドを引数に持つコンストラクタ、デフォルトコンストラクタを自動生成する
+ Getter,Setter,すべてのフィールドを引数に持つコンストラクタ、デフォルトコンストラクタを自動生成する
 
 
 === ToDoResourceクラスの作成
+
+.com.example.tutorial.todo.TodoResource.java
+[source,java]
+----
+package com.example.tutorial2.todo;
+
+import com.fasterxml.jackson.annotation.JsonFormat;
+import lombok.AllArgsConstructor;
+import lombok.Getter;
+import lombok.NoArgsConstructor;
+import lombok.Setter;
+
+import javax.validation.constraints.NotEmpty;
+import javax.validation.constraints.Size;
+import java.io.Serializable;
+import java.time.LocalDateTime;
+
+@Getter
+@Setter
+@AllArgsConstructor
+@NoArgsConstructor
+public class TodoResource implements Serializable {
+
+    private static final long serialVersionUID = 1L;
+
+    private Long todoId;
+
+    @NotEmpty
+    @Size(max = 30)
+    private String todoTitle;
+
+    private  boolean finished;
+
+    @JsonFormat(pattern = "uuuu/MM/dd HH:mm:ss")
+    private LocalDateTime createdAt;
+}
+----
+
+ Todoのフォーマットを定義する。入力チェックにが行われる。
+
+=== Repositoryの作成
+
+==== TodoRepositoryクラスの作成
+
+.com.example.tutorial.todo.TodoRepository.java
+[source,java]
+----
+package com.example.tutorial2.todo;
+
+import org.apache.ibatis.annotations.*;
+import org.springframework.stereotype.Component;
+
+import java.util.Collection;
+import java.util.Optional;
+
+@Mapper
+public interface TodoRepository {
+
+    @Select("SELECT todo_id, todo_title, finished, created_at FROM todo WHERE todo_id = #{todoId}")
+    Optional<Todo> findById(Long todoId);
+
+    @Select("SELECT todo_id, todo_title, finished, created_at FROM todo")
+    Collection<Todo> findAll();
+
+    @Insert("INSERT INTO todo(todo_title, finished, created_at) VALUES(#{todoTitle}, #{finished}, #{createdAt})")
+    @Options(useGeneratedKeys = true, keyProperty = "todoId")
+    void create(Todo todo);
+
+    @Update("UPDATE todo SET finished = true WHERE todo_id = #{todoId}")
+    long updateById(Long todoId);
+
+    @Delete("DELETE FROM todo WHERE todo_id = #{todoId}")
+    long deleteById(Long todoId);
+
+    @Select("SELECT COUNT(*) FROM todo WHERE finished = #{finished}")
+    long countByFinished(boolean finished);
+
+}
+----
+
+ Repositoryクラスはデータアクセス（検索、取得、格納）機能を提供する。
+ @Repositoryアノテーションを利用せず、@Mapperアノテーションを利用している。
+ Mybatisのアノテーションで、@InsertなどCRUDをアノテーションで定義できるため記述が簡略化できる。
+ 複雑なSQLを利用する場合（テーブル結合など）は可読性が下がるためXMLファイルにSQLを定義する方が良い。
+
+ 余談
+ 「updateById」は命名としてイマイチ。
+ 何をupdateしているのか分からないので、「updateFinishedById」の方が良さそう。
+
+==== TodoRepositoryの単体テスト
+
+===== テストクラスの作成
+jUnitを使ってRepositoryクラスの単体テストを行う。 +
+test配下に以下のコードを追加する。
+
+.com.example.tutorial.todo.TodoRepositoryTest.java
+[source,java]
+----
+package com.example.tutorial2.todo;
+
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
+import org.mybatis.spring.boot.test.autoconfigure.MybatisTest;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.jdbc.core.BeanPropertyRowMapper;
+import org.springframework.jdbc.core.RowMapper;
+import org.springframework.jdbc.core.namedparam.EmptySqlParameterSource;
+import org.springframework.jdbc.core.namedparam.MapSqlParameterSource;
+import org.springframework.jdbc.core.namedparam.NamedParameterJdbcOperations;
+import org.springframework.jdbc.core.namedparam.SqlParameterSource;
+
+import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
+import java.util.Collection;
+
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.tuple;
+
+@MybatisTest
+public class TodoRepositoryTest {
+
+    private static final DateTimeFormatter DATE_TIME_FORMAT = DateTimeFormatter.ofPattern("uuuu/MM/dd HH:mm:ss");
+
+    @Autowired
+    private TodoRepository todoRepository;
+
+    @Autowired
+    NamedParameterJdbcOperations jdbcOperations;
+
+    @Test
+    @DisplayName("全Todoが取得できることを確認する(Repository)")
+    void testFindAll() {
+        //run
+        Collection<Todo> actualTodos = todoRepository.findAll();
+
+        //check
+        assertThat(actualTodos)
+                .extracting(Todo::getTodoId, Todo::getTodoTitle, Todo::isFinished, Todo::getCreatedAt )
+                .contains(tuple(1L, "sample todo 1", false, LocalDateTime.parse("2019/09/19 01:01:01",DATE_TIME_FORMAT)),
+                        tuple(2L, "sample todo 2", true, LocalDateTime.parse("2019/09/19 02:02:02",DATE_TIME_FORMAT)),
+                        tuple(3L, "sample todo 3", false, LocalDateTime.parse("2019/09/19 03:03:03",DATE_TIME_FORMAT)));
+
+    }
+
+    @Test
+    @DisplayName("todoIdに対応するTodoが取得できることを確認する(Repository)")
+    void testFindById() {
+        //run
+        Todo actualTodo = todoRepository.findById(1L).get();
+
+        //check
+        assertThat(actualTodo)
+                .extracting(Todo::getTodoId, Todo::getTodoTitle, Todo::isFinished, Todo::getCreatedAt)
+                .contains(1L, "sample todo 1", false, LocalDateTime.parse("2019/09/19 01:01:01", DATE_TIME_FORMAT));
+
+    }
+
+    @Test
+    @DisplayName("新しいTodoを1つ登録する(Repository)")
+    void testCreate() {
+        //setup
+        Todo actualTodo = new Todo(null, "sample todo 4", false, LocalDateTime.parse("2019/09/19 04:04:04",DATE_TIME_FORMAT));
+
+        //run
+        todoRepository.create(actualTodo);
+
+        //check
+        Todo todo = getLastTodo();
+        assertThat(actualTodo).isEqualToIgnoringGivenFields(todo, "todoId").hasNoNullFieldsOrProperties();
+    }
+
+    @Test
+    @DisplayName("todo_idが一番大きいTodoを完了にする(Repository)")
+    void testUpdateById(){
+        //setup
+        Todo todo = getTodo(1L);
+
+        //run
+        long count = todoRepository.updateById(1L);
+        Todo updated = getTodo(1L);
+
+        //check
+        assertThat(count).isEqualTo(1L);
+        assertThat(updated).isEqualToIgnoringGivenFields(todo, "finished").hasFieldOrPropertyWithValue("finished", true);
+    }
+
+    @Test
+    @DisplayName("todo_id=1のTodoを削除する(Repository)")
+    void testDeleteById(){
+        //run
+        long count = todoRepository.deleteById(1L);
+
+        //check
+        assertThat(count).isEqualTo(1);
+    }
+
+    private Todo getLastTodo() {
+        String sql = "SELECT * FROM todo ORDER BY todo_id DESC LIMIT 1";
+        SqlParameterSource paramSource = new EmptySqlParameterSource();
+        RowMapper<Todo> rowMapper = new BeanPropertyRowMapper<>(Todo.class);
+        return jdbcOperations.queryForObject(sql, paramSource, rowMapper);
+    }
+
+    private Todo getTodo(Long todoId) {
+        String sql = "SELECT * FROM todo WHERE todo_id = :todoId";
+        SqlParameterSource paramSource = new MapSqlParameterSource().addValue("todoId", todoId);
+        RowMapper<Todo> rowMapper = new BeanPropertyRowMapper<>(Todo.class);
+        return jdbcOperations.queryForObject(sql, paramSource, rowMapper);
+    }
+
+}
+
+----
+
+===== テスト用テーブルの作成
+
+SpringBootの場合、resources配下にschema.sqlを配置することでH2のデータベースを使ったテストが可能になる。 +
+
+.schema.sql
+[source,sql]
+----
+CREATE TABLE IF NOT EXISTS todo (
+    todo_id IDENTITY PRIMARY KEY,
+    todo_title VARCHAR(30),
+    finished BOOLEAN,
+    created_at TIMESTAMP
+);
+----
+
+WARNING: チュートリアル上の例文は最初以下のようになっていたが、文法エラーが出たため修正している。
+
+.schema.sql
+[source,sql]
+----
+CREATE TABLE IF NOT EXISTS todo (
+    todo_id LONG IDENTITY PRIMARY KEY, //<1>
+    todo_title VARCHAR(30),
+    finished BOOLEAN,
+    created_at TIMESTAMP
+) //<2>
+----
+<1> LONGをつけると構文エラーになる。バージョンの差異かも知れないが、H2でIDENTITY定義をする際は別に型指定が不要。
+<2> `;`は不要かもしれないが、IntelliJでは許されなかった。
+
+同様に、testのresource配下にdata.sqlを配置することでテスト時に初期データとして設定できる。
+
+.data.sql
+[source,sql]
+----
+INSERT INTO todo (todo_title, finished, created_at) VALUES ('sample todo 1', false, '2019-09-19 01:01:01');
+INSERT INTO todo (todo_title, finished, created_at) VALUES ('sample todo 2', true, '2019-09-19 02:02:02');
+INSERT INTO todo (todo_title, finished, created_at) VALUES ('sample todo 3', false, '2019-09-19 03:03:03');
+----
+
+WARNING: こちらもチュートリアル上の例文では `;` がついていなかったが、IntelliJは許してくれないのでつけた。
+
+===== テスト実行
+
+「Run TodoRepositoryTest」で実行する。
+IntelliJでは以下のようにテストソース上から簡単に実行できる。
+
+image::https://github.com/birdmoon14/doc/blob/main/docs/buildenv/springboot/images/restapi-006.png?raw=true[]
+
+成功すると以下のような結果が出力される。
+image::https://github.com/birdmoon14/doc/blob/main/docs/buildenv/springboot/images/restapi-007.png?raw=true[]
+
+===== テストで発生した問題
+
+====== UnsatisfiedDependencyException
+
+テスト実行したところ、以下のようなExceptionが発生した。
+[source,java]
+----
+org.springframework.beans.factory.UnsatisfiedDependencyException: Error creating bean with name 'com.example.tutorial.todo.TodoRepositoryTest': Unsatisfied dependency expressed through field 'todoRepository': No qualifying bean of type 'com.example.tutorial.todo.TodoRepository' available: expected at least 1 bean which qualifies as autowire candidate. Dependency annotations: {@org.springframework.beans.factory.annotation.Autowired(required=true)}
+
+	at org.springframework.beans.factory.annotation.AutowiredAnnotationBeanPostProcessor$AutowiredFieldElement.resolveFieldValue(AutowiredAnnotationBeanPostProcessor.java:713)
+	at org.springframework.beans.factory.annotation.AutowiredAnnotationBeanPostProcessor$AutowiredFieldElement.inject(AutowiredAnnotationBeanPostProcessor.java:693)
+	at org.springframework.beans.factory.annotation.InjectionMetadata.inject(InjectionMetadata.java:133)
+	at org.springframework.beans.factory.annotation.AutowiredAnnotationBeanPostProcessor.postProcessProperties(AutowiredAnnotationBeanPostProcessor.java:482)
+	at org.springframework.beans.factory.support.AbstractAutowireCapableBeanFactory.populateBean(AbstractAutowireCapableBeanFactory.java:1416)
+	at org.springframework.beans.factory.support.AbstractAutowireCapableBeanFactory.autowireBeanProperties(AbstractAutowireCapableBeanFactory.java:396)
+	at org.springframework.test.context.support.DependencyInjectionTestExecutionListener.injectDependencies(DependencyInjectionTestExecutionListener.java:142)
+	at org.springframework.test.context.support.DependencyInjectionTestExecutionListener.prepareTestInstance(DependencyInjectionTestExecutionListener.java:97)
+	at org.springframework.test.context.TestContextManager.prepareTestInstance(TestContextManager.java:241)
+	at org.springframework.test.context.junit.jupiter.SpringExtension.postProcessTestInstance(SpringExtension.java:138)
+	at org.junit.jupiter.engine.descriptor.ClassBasedTestDescriptor.lambda$invokeTestInstancePostProcessors$10(ClassBasedTestDescriptor.java:377)
+	at org.junit.jupiter.engine.descriptor.ClassBasedTestDescriptor.executeAndMaskThrowable(ClassBasedTestDescriptor.java:382)
+	at org.junit.jupiter.engine.descriptor.ClassBasedTestDescriptor.lambda$invokeTestInstancePostProcessors$11(ClassBasedTestDescriptor.java:377)
+	at java.base/java.util.stream.ReferencePipeline$3$1.accept(ReferencePipeline.java:197)
+	at java.base/java.util.stream.ReferencePipeline$2$1.accept(ReferencePipeline.java:179)
+	at java.base/java.util.ArrayList$ArrayListSpliterator.forEachRemaining(ArrayList.java:1625)
+	at java.base/java.util.stream.AbstractPipeline.copyInto(AbstractPipeline.java:509)
+	at java.base/java.util.stream.AbstractPipeline.wrapAndCopyInto(AbstractPipeline.java:499)
+	at java.base/java.util.stream.StreamSpliterators$WrappingSpliterator.forEachRemaining(StreamSpliterators.java:310)
+	at java.base/java.util.stream.Streams$ConcatSpliterator.forEachRemaining(Streams.java:735)
+	at java.base/java.util.stream.Streams$ConcatSpliterator.forEachRemaining(Streams.java:734)
+	at java.base/java.util.stream.ReferencePipeline$Head.forEach(ReferencePipeline.java:762)
+	at org.junit.jupiter.engine.descriptor.ClassBasedTestDescriptor.invokeTestInstancePostProcessors(ClassBasedTestDescriptor.java:376)
+	at org.junit.jupiter.engine.descriptor.ClassBasedTestDescriptor.lambda$instantiateAndPostProcessTestInstance$6(ClassBasedTestDescriptor.java:289)
+	at org.junit.platform.engine.support.hierarchical.ThrowableCollector.execute(ThrowableCollector.java:73)
+	at org.junit.jupiter.engine.descriptor.ClassBasedTestDescriptor.instantiateAndPostProcessTestInstance(ClassBasedTestDescriptor.java:288)
+	at org.junit.jupiter.engine.descriptor.ClassBasedTestDescriptor.lambda$testInstancesProvider$4(ClassBasedTestDescriptor.java:278)
+	at java.base/java.util.Optional.orElseGet(Optional.java:364)
+	at org.junit.jupiter.engine.descriptor.ClassBasedTestDescriptor.lambda$testInstancesProvider$5(ClassBasedTestDescriptor.java:277)
+	at org.junit.jupiter.engine.execution.TestInstancesProvider.getTestInstances(TestInstancesProvider.java:31)
+	at org.junit.jupiter.engine.descriptor.TestMethodTestDescriptor.lambda$prepare$0(TestMethodTestDescriptor.java:105)
+	at org.junit.platform.engine.support.hierarchical.ThrowableCollector.execute(ThrowableCollector.java:73)
+	at org.junit.jupiter.engine.descriptor.TestMethodTestDescriptor.prepare(TestMethodTestDescriptor.java:104)
+	at org.junit.jupiter.engine.descriptor.TestMethodTestDescriptor.prepare(TestMethodTestDescriptor.java:68)
+	at org.junit.platform.engine.support.hierarchical.NodeTestTask.lambda$prepare$2(NodeTestTask.java:123)
+	at org.junit.platform.engine.support.hierarchical.ThrowableCollector.execute(ThrowableCollector.java:73)
+	at org.junit.platform.engine.support.hierarchical.NodeTestTask.prepare(NodeTestTask.java:123)
+	at org.junit.platform.engine.support.hierarchical.NodeTestTask.execute(NodeTestTask.java:90)
+	at java.base/java.util.ArrayList.forEach(ArrayList.java:1511)
+	at org.junit.platform.engine.support.hierarchical.SameThreadHierarchicalTestExecutorService.invokeAll(SameThreadHierarchicalTestExecutorService.java:41)
+	at org.junit.platform.engine.support.hierarchical.NodeTestTask.lambda$executeRecursively$6(NodeTestTask.java:155)
+	at org.junit.platform.engine.support.hierarchical.ThrowableCollector.execute(ThrowableCollector.java:73)
+	at org.junit.platform.engine.support.hierarchical.NodeTestTask.lambda$executeRecursively$8(NodeTestTask.java:141)
+	at org.junit.platform.engine.support.hierarchical.Node.around(Node.java:137)
+	at org.junit.platform.engine.support.hierarchical.NodeTestTask.lambda$executeRecursively$9(NodeTestTask.java:139)
+	at org.junit.platform.engine.support.hierarchical.ThrowableCollector.execute(ThrowableCollector.java:73)
+	at org.junit.platform.engine.support.hierarchical.NodeTestTask.executeRecursively(NodeTestTask.java:138)
+	at org.junit.platform.engine.support.hierarchical.NodeTestTask.execute(NodeTestTask.java:95)
+	at java.base/java.util.ArrayList.forEach(ArrayList.java:1511)
+	at org.junit.platform.engine.support.hierarchical.SameThreadHierarchicalTestExecutorService.invokeAll(SameThreadHierarchicalTestExecutorService.java:41)
+	at org.junit.platform.engine.support.hierarchical.NodeTestTask.lambda$executeRecursively$6(NodeTestTask.java:155)
+	at org.junit.platform.engine.support.hierarchical.ThrowableCollector.execute(ThrowableCollector.java:73)
+	at org.junit.platform.engine.support.hierarchical.NodeTestTask.lambda$executeRecursively$8(NodeTestTask.java:141)
+	at org.junit.platform.engine.support.hierarchical.Node.around(Node.java:137)
+	at org.junit.platform.engine.support.hierarchical.NodeTestTask.lambda$executeRecursively$9(NodeTestTask.java:139)
+	at org.junit.platform.engine.support.hierarchical.ThrowableCollector.execute(ThrowableCollector.java:73)
+	at org.junit.platform.engine.support.hierarchical.NodeTestTask.executeRecursively(NodeTestTask.java:138)
+	at org.junit.platform.engine.support.hierarchical.NodeTestTask.execute(NodeTestTask.java:95)
+	at org.junit.platform.engine.support.hierarchical.SameThreadHierarchicalTestExecutorService.submit(SameThreadHierarchicalTestExecutorService.java:35)
+	at org.junit.platform.engine.support.hierarchical.HierarchicalTestExecutor.execute(HierarchicalTestExecutor.java:57)
+	at org.junit.platform.engine.support.hierarchical.HierarchicalTestEngine.execute(HierarchicalTestEngine.java:54)
+	at org.junit.platform.launcher.core.EngineExecutionOrchestrator.execute(EngineExecutionOrchestrator.java:147)
+	at org.junit.platform.launcher.core.EngineExecutionOrchestrator.execute(EngineExecutionOrchestrator.java:127)
+	at org.junit.platform.launcher.core.EngineExecutionOrchestrator.execute(EngineExecutionOrchestrator.java:90)
+	at org.junit.platform.launcher.core.EngineExecutionOrchestrator.lambda$execute$0(EngineExecutionOrchestrator.java:55)
+	at org.junit.platform.launcher.core.EngineExecutionOrchestrator.withInterceptedStreams(EngineExecutionOrchestrator.java:102)
+	at org.junit.platform.launcher.core.EngineExecutionOrchestrator.execute(EngineExecutionOrchestrator.java:54)
+	at org.junit.platform.launcher.core.DefaultLauncher.execute(DefaultLauncher.java:114)
+	at org.junit.platform.launcher.core.DefaultLauncher.execute(DefaultLauncher.java:86)
+	at org.junit.platform.launcher.core.DefaultLauncherSession$DelegatingLauncher.execute(DefaultLauncherSession.java:86)
+	at org.junit.platform.launcher.core.SessionPerRequestLauncher.execute(SessionPerRequestLauncher.java:53)
+	at com.intellij.junit5.JUnit5IdeaTestRunner.startRunnerWithArgs(JUnit5IdeaTestRunner.java:57)
+	at com.intellij.rt.junit.IdeaTestRunner$Repeater$1.execute(IdeaTestRunner.java:38)
+	at com.intellij.rt.execution.junit.TestsRepeater.repeat(TestsRepeater.java:11)
+	at com.intellij.rt.junit.IdeaTestRunner$Repeater.startRunnerWithArgs(IdeaTestRunner.java:35)
+	at com.intellij.rt.junit.JUnitStarter.prepareStreamsAndStart(JUnitStarter.java:232)
+	at com.intellij.rt.junit.JUnitStarter.main(JUnitStarter.java:55)
+Caused by: org.springframework.beans.factory.NoSuchBeanDefinitionException: No qualifying bean of type 'com.example.tutorial.todo.TodoRepository' available: expected at least 1 bean which qualifies as autowire candidate. Dependency annotations: {@org.springframework.beans.factory.annotation.Autowired(required=true)}
+	at org.springframework.beans.factory.support.DefaultListableBeanFactory.raiseNoMatchingBeanFound(DefaultListableBeanFactory.java:1824)
+	at org.springframework.beans.factory.support.DefaultListableBeanFactory.doResolveDependency(DefaultListableBeanFactory.java:1383)
+	at org.springframework.beans.factory.support.DefaultListableBeanFactory.resolveDependency(DefaultListableBeanFactory.java:1337)
+	at org.springframework.beans.factory.annotation.AutowiredAnnotationBeanPostProcessor$AutowiredFieldElement.resolveFieldValue(AutowiredAnnotationBeanPostProcessor.java:710)
+	... 76 more
+----
+
+@AutowiredしているTodoRepositoryクラスがDIコンテナに登録されていないというエラー。 +
+<<_参考サイト>>[1][2]を元に、いくつか対応策を講じてみた。
+
+
+確認したところ、BeanにはTodoRepositoryが登録されており、スペルミス/階層構造のミスやアノテーションのつけ忘れもないことが分かった。お手上げである。 +
+いよいよ困っていたところ、同じようにハマっている方(<<_参考サイト>>[3])を見つけて再度プロジェクトを作り直した。最初の手順と全く同じ設定で「tutorial2」を作成し、ソースコードは元のプロジェクトで作成したものをそのままコピー（もちろんパッケージ名は修正）した。 +
+本エラーはこれで解消した。IntelliJに限らないが、IDEツールは時々想定外の動きをするので、行き詰ったら再起動やプロジェクト再作成をしてみると良いかもしれない。 +
+
+====== 参考サイト
+[1] https://qiita.com/NagaokaKenichi/items/058a7243bd2948de7553
+[2] https://www.shookuro.com/entry/2016/08/09/154829
+[3] https://zenn.dev/jinwatanabe/scraps/d40d8f1a2d2a9c
+
+
+=== Serviceの作成
+
+==== 例外クラスの作成
+
+例外クラスとして以下の2つを作成する。
+
+.com.example.tutorial.todo.common.exception.BusinessException.java
+[source,java]
+----
+package com.example.tutorial2.common.exception;
+
+import org.springframework.http.HttpStatus;
+import org.springframework.web.bind.annotation.ResponseStatus;
+
+@ResponseStatus(code= HttpStatus.CONFLICT)
+public class BusinessException extends RuntimeException{
+    private static final long serialVersionUID = 1L;
+
+    public BusinessException(String message){
+        super(message);
+    }
+
+    public BusinessException(String message,Throwable cause){
+        super(message, cause);
+    }
+}
+
+----
+
+.com.example.tutorial.todo.common.exception.ResourceNotFoundException.java
+[source,java]
+----
+package com.example.tutorial2.common.exception;
+
+import org.springframework.http.HttpStatus;
+import org.springframework.web.bind.annotation.ResponseStatus;
+
+@ResponseStatus(code= HttpStatus.NOT_FOUND)
+public class ResourceNotFoundException extends RuntimeException{
+
+    private static final long serialVersionUID = 1L;
+
+    public ResourceNotFoundException(String message){
+        super(message);
+    }
+
+    public ResourceNotFoundException(String message,Throwable cause){
+        super(message,cause);
+    }
+}
+
+----
+
+==== TodoServiceインタフェースの作成
+
+TodoServiceのインタフェースを作成する。
+
+.com.example.tutorial.todo.TodoService.java
+[source,java]
+----
+package com.example.tutorial2.todo;
+
+import java.util.Collection;
+
+public interface TodoService {
+
+    Todo findOne(Long todoId);
+
+    Collection<Todo> findAll();
+
+    Todo create(Todo todo);
+
+    Todo finish(Long todoId);
+
+    void delete(Long todoId);
+
+}
+----
+
+==== TodoServiceImplクラスの作成
+
+TodoServiceの実装クラスを作成する。
+
+.com.example.tutorial.todo.TodoServiceImpl.java
+[source,java]
+----
+package com.example.tutorial2.todo;
+
+import com.example.tutorial2.common.exception.BusinessException;
+import com.example.tutorial2.common.exception.ResourceNotFoundException;
+import lombok.RequiredArgsConstructor;
+import org.mybatis.spring.annotation.MapperScan;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+import java.time.LocalDateTime;
+import java.util.Collection;
+
+@Service
+@Transactional
+public class TodoServiceImpl implements TodoService{
+
+    private static final long MAX_UNFINISED_COUNT = 5;
+
+    @Autowired
+    private TodoRepository todoRepository;
+
+    @Override
+    public Todo findOne(Long todoId){
+        return todoRepository.findById(todoId).orElseThrow(() -> new ResourceNotFoundException("The requested Todo is not found.(id="+ todoId + ")"));
+    }
+
+    @Override
+    public Collection<Todo> findAll(){
+        return todoRepository.findAll();
+    }
+
+    @Override
+    public Todo create(Todo todo){
+        long unfinishedCount = todoRepository.countByFinished(false);
+        if(unfinishedCount>=MAX_UNFINISED_COUNT){
+            throw new BusinessException(
+                    "The count of un-finished Todo must not be over" + MAX_UNFINISED_COUNT + "."
+            );
+        }
+        LocalDateTime createdAt = LocalDateTime.now();
+        todo.setCreatedAt(createdAt);
+        todo.setFinished(false);
+
+        todoRepository.create(todo);
+        return todo;
+    }
+
+    @Override
+    public Todo finish(Long todoId){
+        Todo todo = findOne(todoId);
+        if(todo.isFinished()){
+            throw new BusinessException(
+                    "The requested Todo is already finished.(id ="+todoId+")"
+            );
+        }
+        todo.setFinished(true);
+        todoRepository.updateById(todoId);
+        return todo;
+    }
+
+    @Override
+    public void delete(Long todoId){
+        findOne(todoId);
+        todoRepository.deleteById(todoId);
+    }
+
+}
+----
+
+==== TodoServiceの単体テスト
+
+TodoServiceのテストクラスを作成し、実行する。
+
+.com.example.tutorial.todo.TodoServiceTest.java
+[source,java]
+----
+package com.example.tutorial2.todo;
+
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
+import org.mockito.ArgumentMatcher;
+import org.mockito.ArgumentMatchers;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.context.SpringBootTest;
+
+import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
+import java.util.Arrays;
+import java.util.Collection;
+import java.util.Objects;
+import java.util.Optional;
+
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.BDDMockito.given;
+import static org.mockito.BDDMockito.then;
+import static org.mockito.Mockito.times;
+
+@SpringBootTest(classes = TodoServiceImpl.class)
+public class TodoServiceTest {
+    
+    private static final DateTimeFormatter DATE_TIME_FORMAT = DateTimeFormatter.ofPattern("uuuu/MM/dd HH:mm:ss");
+    
+    @Autowired
+    private TodoService todoService;
+    
+    @Autowired
+    private TodoRepository todoRepository;
+    
+    @Test
+    @DisplayName("すべてのTodoを取得する(service)")
+    void testFindAll(){
+        //setup
+        Todo expectTodo1 = new Todo(1L, "sample todo 1", false, LocalDateTime.parse("2019/09/19 01:01:01",DATE_TIME_FORMAT));
+        Todo expectTodo2 = new Todo(2L, "sample todo 2", true, LocalDateTime.parse("2019/09/19 02:02:02",DATE_TIME_FORMAT));
+        Todo expectTodo3 = new Todo(3L, "sample todo 3", false, LocalDateTime.parse("2019/09/19 03:03:03",DATE_TIME_FORMAT));
+        
+        //setup mocks
+        given(todoRepository.findAll())
+                .willReturn(Arrays.asList(expectTodo1,expectTodo2,expectTodo3));
+        
+        //run
+        Collection<Todo> actualTodos = todoService.findAll();
+        
+        //check
+        then(todoRepository).should(times(1)).findAll();
+        assertThat(actualTodos).usingFieldByFieldElementComparator().containsExactly(expectTodo1,expectTodo2,expectTodo3);
+    }
+
+    @Test
+    @DisplayName("Todoを１つ取得する(Service)")
+    void testFindOne(){
+        //setup
+        Todo expectTodo = new Todo(1L, "sample todo 1", false, LocalDateTime.parse("2019/09/19 01:01:01",DATE_TIME_FORMAT));
+
+        //setup mocks
+        given(todoRepository.findById(1L)).willReturn(Optional.of(expectTodo));
+
+        //run
+        Todo actualTodo = todoService.findOne(1L);
+
+        //check
+        then(todoRepository).should(times(1)).findById(ArgumentMatchers.longThat(arg -> arg == actualTodo.getTodoId()));
+        assertThat(actualTodo).isEqualToIgnoringGivenFields(expectTodo);
+    }
+
+    @Test
+    @DisplayName("Todoを作成する(Service)")
+    void testCreate() {
+        //setup
+        Todo expectTodo = new Todo(null, "sample todo 4", false, null);
+
+        //setup mocks
+        todoService.create(expectTodo);
+
+        //check
+        then(todoRepository).should(times(1)).create(ArgumentMatchers.<Todo>argThat(arg -> expectTodo.getTodoTitle().equals(arg.getTodoTitle())
+                && !arg.isFinished() && Objects.nonNull(arg.getCreatedAt())));
+    }
+
+    @Test
+    @DisplayName("todoId=1のTodoを完了にする(Service)")
+    void testFinish() {
+        //setup
+        Todo expectTodo = new Todo(1L, "sample todo 1", false, LocalDateTime.parse("2019/09/19 01:01:01",DATE_TIME_FORMAT));
+
+        //setup mocks
+        given(todoRepository.findById(1L)).willReturn(Optional.of(expectTodo));
+        given(todoRepository.updateById(1L)).willReturn(1L);
+
+        //run
+        todoService.finish(1L);
+
+        //check
+        then(todoRepository).should(times(1)).findById(ArgumentMatchers.longThat(arg -> arg == expectTodo.getTodoId()));
+        then(todoRepository).should(times(1)).updateById(ArgumentMatchers.longThat(arg -> arg == 1L));
+    }
+
+    @Test
+    @DisplayName("todoId=1のTodoを削除する(Service)")
+    void testDelete() {
+        //setup
+        Todo expectTodo = new Todo(1L, "sample todo 1", false, LocalDateTime.parse("2019/09/19 01:01:01",DATE_TIME_FORMAT));
+
+        //setup mocks
+        given(todoRepository.findById(1L)).willReturn(Optional.of(expectTodo));
+        given(todoRepository.deleteById(1L)).willReturn(1L);
+
+        //run
+        todoService.delete(1L);
+
+        //check
+        then(todoRepository).should(times(1)).findById(ArgumentMatchers.longThat(arg -> arg == expectTodo.getTodoId()));
+        then(todoRepository).should(times(1)).deleteById(ArgumentMatchers.longThat(arg -> arg == 1L));
+    }
+}
+
+----
+
+=== Controllerの作成
+==== TodoControllerクラスの作成
+
+Controllerクラスを作成する。
+
+.com.example.tutorial.todo.TodoController.java
+[source,java]
+----
+package com.example.tutorial2.todo;
+
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.HttpStatus;
+import org.springframework.validation.annotation.Validated;
+import org.springframework.web.bind.annotation.*;
+import com.github.dozermapper.core.Mapper;
+
+import java.util.Collection;
+import java.util.List;
+import java.util.stream.Collectors;
+
+@RestController
+@RequestMapping("todos")
+public class TodoController {
+
+    @Autowired
+    TodoService todoService;
+
+    @Autowired
+    Mapper beanMapper;
+
+    @GetMapping
+    public List<TodoResource> getTodos(){
+        Collection<Todo> todos = todoService.findAll();
+        return todos.stream().map(todo -> beanMapper.map(todo, TodoResource.class)).collect(Collectors.toList());
+    }
+
+    @GetMapping("{todoId}")
+    public TodoResource getTodo(@PathVariable("todoId") Long todoId){
+        Todo todo = todoService.findOne(todoId);
+        return beanMapper.map(todo, TodoResource.class);
+    }
+
+    @PostMapping
+    @ResponseStatus(HttpStatus.CREATED)
+    public TodoResource postTodo(@RequestBody @Validated TodoResource todoResource){
+        Todo createdTodo = todoService.create(beanMapper.map(todoResource, Todo.class));
+        return beanMapper.map(createdTodo, TodoResource.class);
+    }
+
+    @PutMapping("{todoId}")
+    public TodoResource putTodo(@PathVariable("todoId") Long todoId){
+        Todo finishedTodo = todoService.finish(todoId);
+        return beanMapper.map(finishedTodo, TodoResource.class);
+    }
+
+    @DeleteMapping("{todoId}")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void deleteTodo(@PathVariable("todoId") Long todoId){
+        todoService.delete(todoId);
+    }
+
+}
+
+----
+
+==== TodoControllerの単体テスト
+
+TodoControllerのテストクラスを作成し、実行する
+
+.com.example.tutorial.todo.TodoControllerTest.java
+[source,java]
+----
+package com.example.tutorial2.todo;
+
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
+import org.mockito.ArgumentMatchers;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.boot.test.mock.mockito.MockBean;
+import org.springframework.boot.test.web.client.TestRestTemplate;
+import com.github.dozermapper.core.Mapper;
+import org.springframework.http.*;
+
+import java.net.URI;
+import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
+import java.util.Arrays;
+import java.util.Collection;
+
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.BDDMockito.given;
+import static org.mockito.BDDMockito.then;
+import static org.mockito.Mockito.times;
+
+@SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
+public class TodoControllerTest {
+    private static final DateTimeFormatter DATETIME_FORMAT = DateTimeFormatter.ofPattern("uuuu/MM/dd HH:mm:ss");
+
+    @Autowired
+    private TestRestTemplate testRestTemplate;
+
+    @Autowired
+    private Mapper beanMapper;
+
+    @MockBean
+    private TodoService todoService;
+
+    @Test
+    @DisplayName("すべてのTodoを取得する(Controller)")
+    void testGetTodos() {
+        //setup
+        Todo expectTodo1 = new Todo(1L, "sample todo 1", false, LocalDateTime.parse("2019/09/19 01:01:01",DATETIME_FORMAT));
+        Todo expectTodo2 = new Todo(2L, "sample todo 2", true, LocalDateTime.parse("2019/09/19 02:02:02",DATETIME_FORMAT));
+        Collection<Todo> expectTodos = Arrays.asList(expectTodo1,expectTodo2);
+        TodoResource[] expectTodoResources = expectTodos.stream().map(todo -> beanMapper.map(todo, TodoResource.class)).toArray(TodoResource[]::new);
+
+        //setup mocks
+        given(todoService.findAll()).willReturn(expectTodos);
+
+        //run
+        ResponseEntity<TodoResource[]> actualResponseEntity = testRestTemplate.getForEntity("/todos",TodoResource[].class);
+
+        //check
+        then(todoService).should(times(1)).findAll();
+        assertThat(actualResponseEntity.getBody()).usingRecursiveFieldByFieldElementComparator().containsExactly(expectTodoResources[0],expectTodoResources[1]);
+        assertThat(actualResponseEntity.getStatusCode()).isEqualTo(HttpStatus.OK);
+
+    }
+
+    @Test
+    @DisplayName("Todoを１つ取得する(Controller)")
+    void testGetTodo() {
+        //setup
+        Todo expectTodo = new Todo(1L, "sample todo 1", false, LocalDateTime.parse("2019/09/19 01:01:01",DATETIME_FORMAT));
+        TodoResource expectTodoResource = beanMapper.map(expectTodo, TodoResource.class);
+
+        //setup mocks
+        given(this.todoService.findOne(1L)).willReturn(expectTodo);
+
+        //run
+        ResponseEntity<TodoResource> actualResponseEntity = testRestTemplate.getForEntity("/todos/1", TodoResource.class);
+
+        //check
+        then(todoService).should(times(1)).findOne(ArgumentMatchers.longThat(arg -> arg ==expectTodo.getTodoId()));
+        assertThat(actualResponseEntity.getBody()).isEqualToIgnoringGivenFields(expectTodoResource);
+        assertThat(actualResponseEntity.getStatusCode()).isEqualTo(HttpStatus.OK);
+    }
+
+    @Test
+    @DisplayName("Todoを１つ登録する(Controller)")
+    void testPostTodo(){
+        //setup
+        TodoResource inputTodoResource = new TodoResource();
+        inputTodoResource.setTodoTitle("sample todo 4");
+        Todo inputTodo = beanMapper.map(inputTodoResource, Todo.class);
+        Todo expectTodo = new Todo(4L, "sample todo 4", false, LocalDateTime.parse("2019/09/19 04:04:04",DATETIME_FORMAT));
+        TodoResource expectTodoResource = beanMapper.map(expectTodo, TodoResource.class);
+
+        //setup mocks
+        given(this.todoService.create(any(Todo.class))).willReturn(expectTodo);
+
+        //run
+        ResponseEntity<TodoResource> actualResponseEntity = testRestTemplate.postForEntity("/todos",inputTodoResource, TodoResource.class);
+
+        //check
+        then(todoService).should(times(1)).create(ArgumentMatchers.<Todo>argThat(arg -> inputTodo.getTodoTitle().equals(arg.getTodoTitle())));
+        assertThat(actualResponseEntity.getBody()).isEqualToIgnoringGivenFields(expectTodoResource);
+        assertThat(actualResponseEntity.getStatusCode()).isEqualTo(HttpStatus.CREATED);
+    }
+
+    @Test
+    @DisplayName("Todoを１つ完了にする(Controller)")
+    void testPutTodo() {
+        //setup
+        Todo expectTodo = new Todo(1L, "sample todo 1", false, LocalDateTime.parse("2019/09/19 01:01:01",DATETIME_FORMAT));
+        TodoResource expectTodoResource = beanMapper.map(expectTodo, TodoResource.class);
+
+        //setup mocks
+        given(this.todoService.finish(1L)).willReturn(expectTodo);
+
+        //run
+        RequestEntity<String> actualRequestEntity = RequestEntity.put(URI.create("/todos/1")).body("");
+        ResponseEntity<TodoResource> actualResponseEntity = testRestTemplate.exchange(actualRequestEntity, TodoResource.class);
+
+        //check
+        then(todoService).should(times(1)).finish(ArgumentMatchers.longThat(arg -> arg == expectTodo.getTodoId()));
+        assertThat(actualResponseEntity.getBody()).isEqualToIgnoringGivenFields(expectTodoResource);
+        assertThat(actualResponseEntity.getStatusCode()).isEqualTo(HttpStatus.OK);
+    }
+
+    @Test
+    @DisplayName("Todoを削除する(Controller)")
+    void testDeleteTodo() {
+        //run
+        ResponseEntity<String> actualResponseEntity = testRestTemplate.exchange("/todos/1", HttpMethod.DELETE, HttpEntity.EMPTY, String.class);
+
+        //check
+        then(todoService).should(times(1)).delete(ArgumentMatchers.longThat(arg -> arg == 1L));
+        assertThat(actualResponseEntity.getBody()).isNull();
+        assertThat(actualResponseEntity.getStatusCode()).isEqualTo(HttpStatus.NO_CONTENT);
+    }
+
+}
+
+----
+
+===== Controller単体テストで発生した問題
+====== 1.IllegalStateException
+
+causeの配下を見ると、どうやらbeanMapper(DozerBeanMapper)がBean定義されてないということらしい。使い方を間違えたと思いソースコードを見てみるが、あっていそう。
+link:http://terasolunaorg.github.io/guideline/current/ja/ArchitectureInDetail/GeneralFuncDetail/BeanMapping.html#mapstruct-setting[TERASOLUNA Frameworkガイドライン]を参照したところ、InjectしているようなのでAutowired→Injectに変更。 +
+Injectにしたら通った。DozerBeanMapperはSpringのDIコンテナではないので、単純にAutowiredでは参照できない模様。（dozer-spring-boot-starterが機能していないだけ？）
+
+injectにすると一応通ったように見えるが、今度はbeanMapperがnullだと言われてしまった。
+なんでやねーん。
+
+[source,java]
+----
+java.lang.IllegalStateException: Failed to load ApplicationContext for [WebMergedContextConfiguration@14d1737a testClass = com.example.tutorial2.todo.TodoControllerTest, locations = [], classes = [com.example.tutorial2.Tutorial2Application], contextInitializerClasses = [], activeProfiles = [], propertySourceLocations = [], propertySourceProperties = ["org.springframework.boot.test.context.SpringBootTestContextBootstrapper=true", "server.port=0"], contextCustomizers = [org.springframework.boot.test.context.filter.ExcludeFilterContextCustomizer@45099dd3, org.springframework.boot.test.json.DuplicateJsonObjectContextCustomizerFactory$DuplicateJsonObjectContextCustomizer@1c7696c6, org.springframework.boot.test.mock.mockito.MockitoContextCustomizer@58f12654, org.springframework.boot.test.web.client.TestRestTemplateContextCustomizer@25ce9dc4, org.springframework.boot.test.autoconfigure.actuate.observability.ObservabilityContextCustomizerFactory$DisableObservabilityContextCustomizer@9da1, org.springframework.boot.test.autoconfigure.properties.PropertyMappingContextCustomizer@0, org.springframework.boot.test.autoconfigure.web.servlet.WebDriverContextCustomizerFactory$Customizer@196a42c3, org.springframework.boot.test.context.SpringBootTestAnnotation@c6df184a], resourceBasePath = "src/main/webapp", contextLoader = org.springframework.boot.test.context.SpringBootContextLoader, parent = null]
+
+	at org.springframework.test.context.cache.DefaultCacheAwareContextLoaderDelegate.loadContext(DefaultCacheAwareContextLoaderDelegate.java:142)
+	at org.springframework.test.context.support.DefaultTestContext.getApplicationContext(DefaultTestContext.java:127)
+	at org.springframework.boot.test.mock.mockito.MockitoTestExecutionListener.postProcessFields(MockitoTestExecutionListener.java:110)
+	at org.springframework.boot.test.mock.mockito.MockitoTestExecutionListener.injectFields(MockitoTestExecutionListener.java:94)
+	at org.springframework.boot.test.mock.mockito.MockitoTestExecutionListener.prepareTestInstance(MockitoTestExecutionListener.java:61)
+	at org.springframework.test.context.TestContextManager.prepareTestInstance(TestContextManager.java:241)
+	at org.springframework.test.context.junit.jupiter.SpringExtension.postProcessTestInstance(SpringExtension.java:138)
+	at org.junit.jupiter.engine.descriptor.ClassBasedTestDescriptor.lambda$invokeTestInstancePostProcessors$10(ClassBasedTestDescriptor.java:377)
+	at org.junit.jupiter.engine.descriptor.ClassBasedTestDescriptor.executeAndMaskThrowable(ClassBasedTestDescriptor.java:382)
+	at org.junit.jupiter.engine.descriptor.ClassBasedTestDescriptor.lambda$invokeTestInstancePostProcessors$11(ClassBasedTestDescriptor.java:377)
+	at java.base/java.util.stream.ReferencePipeline$3$1.accept(ReferencePipeline.java:197)
+	at java.base/java.util.stream.ReferencePipeline$2$1.accept(ReferencePipeline.java:179)
+	at java.base/java.util.ArrayList$ArrayListSpliterator.forEachRemaining(ArrayList.java:1625)
+	at java.base/java.util.stream.AbstractPipeline.copyInto(AbstractPipeline.java:509)
+	at java.base/java.util.stream.AbstractPipeline.wrapAndCopyInto(AbstractPipeline.java:499)
+	at java.base/java.util.stream.StreamSpliterators$WrappingSpliterator.forEachRemaining(StreamSpliterators.java:310)
+	at java.base/java.util.stream.Streams$ConcatSpliterator.forEachRemaining(Streams.java:735)
+	at java.base/java.util.stream.Streams$ConcatSpliterator.forEachRemaining(Streams.java:734)
+	at java.base/java.util.stream.ReferencePipeline$Head.forEach(ReferencePipeline.java:762)
+	at org.junit.jupiter.engine.descriptor.ClassBasedTestDescriptor.invokeTestInstancePostProcessors(ClassBasedTestDescriptor.java:376)
+	at org.junit.jupiter.engine.descriptor.ClassBasedTestDescriptor.lambda$instantiateAndPostProcessTestInstance$6(ClassBasedTestDescriptor.java:289)
+	at org.junit.platform.engine.support.hierarchical.ThrowableCollector.execute(ThrowableCollector.java:73)
+	at org.junit.jupiter.engine.descriptor.ClassBasedTestDescriptor.instantiateAndPostProcessTestInstance(ClassBasedTestDescriptor.java:288)
+	at org.junit.jupiter.engine.descriptor.ClassBasedTestDescriptor.lambda$testInstancesProvider$4(ClassBasedTestDescriptor.java:278)
+	at java.base/java.util.Optional.orElseGet(Optional.java:364)
+	at org.junit.jupiter.engine.descriptor.ClassBasedTestDescriptor.lambda$testInstancesProvider$5(ClassBasedTestDescriptor.java:277)
+	at org.junit.jupiter.engine.execution.TestInstancesProvider.getTestInstances(TestInstancesProvider.java:31)
+	at org.junit.jupiter.engine.descriptor.TestMethodTestDescriptor.lambda$prepare$0(TestMethodTestDescriptor.java:105)
+	at org.junit.platform.engine.support.hierarchical.ThrowableCollector.execute(ThrowableCollector.java:73)
+	at org.junit.jupiter.engine.descriptor.TestMethodTestDescriptor.prepare(TestMethodTestDescriptor.java:104)
+	at org.junit.jupiter.engine.descriptor.TestMethodTestDescriptor.prepare(TestMethodTestDescriptor.java:68)
+	at org.junit.platform.engine.support.hierarchical.NodeTestTask.lambda$prepare$2(NodeTestTask.java:123)
+	at org.junit.platform.engine.support.hierarchical.ThrowableCollector.execute(ThrowableCollector.java:73)
+	at org.junit.platform.engine.support.hierarchical.NodeTestTask.prepare(NodeTestTask.java:123)
+	at org.junit.platform.engine.support.hierarchical.NodeTestTask.execute(NodeTestTask.java:90)
+	at java.base/java.util.ArrayList.forEach(ArrayList.java:1511)
+	at org.junit.platform.engine.support.hierarchical.SameThreadHierarchicalTestExecutorService.invokeAll(SameThreadHierarchicalTestExecutorService.java:41)
+	at org.junit.platform.engine.support.hierarchical.NodeTestTask.lambda$executeRecursively$6(NodeTestTask.java:155)
+	at org.junit.platform.engine.support.hierarchical.ThrowableCollector.execute(ThrowableCollector.java:73)
+	at org.junit.platform.engine.support.hierarchical.NodeTestTask.lambda$executeRecursively$8(NodeTestTask.java:141)
+	at org.junit.platform.engine.support.hierarchical.Node.around(Node.java:137)
+	at org.junit.platform.engine.support.hierarchical.NodeTestTask.lambda$executeRecursively$9(NodeTestTask.java:139)
+	at org.junit.platform.engine.support.hierarchical.ThrowableCollector.execute(ThrowableCollector.java:73)
+	at org.junit.platform.engine.support.hierarchical.NodeTestTask.executeRecursively(NodeTestTask.java:138)
+	at org.junit.platform.engine.support.hierarchical.NodeTestTask.execute(NodeTestTask.java:95)
+	at java.base/java.util.ArrayList.forEach(ArrayList.java:1511)
+	at org.junit.platform.engine.support.hierarchical.SameThreadHierarchicalTestExecutorService.invokeAll(SameThreadHierarchicalTestExecutorService.java:41)
+	at org.junit.platform.engine.support.hierarchical.NodeTestTask.lambda$executeRecursively$6(NodeTestTask.java:155)
+	at org.junit.platform.engine.support.hierarchical.ThrowableCollector.execute(ThrowableCollector.java:73)
+	at org.junit.platform.engine.support.hierarchical.NodeTestTask.lambda$executeRecursively$8(NodeTestTask.java:141)
+	at org.junit.platform.engine.support.hierarchical.Node.around(Node.java:137)
+	at org.junit.platform.engine.support.hierarchical.NodeTestTask.lambda$executeRecursively$9(NodeTestTask.java:139)
+	at org.junit.platform.engine.support.hierarchical.ThrowableCollector.execute(ThrowableCollector.java:73)
+	at org.junit.platform.engine.support.hierarchical.NodeTestTask.executeRecursively(NodeTestTask.java:138)
+	at org.junit.platform.engine.support.hierarchical.NodeTestTask.execute(NodeTestTask.java:95)
+	at org.junit.platform.engine.support.hierarchical.SameThreadHierarchicalTestExecutorService.submit(SameThreadHierarchicalTestExecutorService.java:35)
+	at org.junit.platform.engine.support.hierarchical.HierarchicalTestExecutor.execute(HierarchicalTestExecutor.java:57)
+	at org.junit.platform.engine.support.hierarchical.HierarchicalTestEngine.execute(HierarchicalTestEngine.java:54)
+	at org.junit.platform.launcher.core.EngineExecutionOrchestrator.execute(EngineExecutionOrchestrator.java:147)
+	at org.junit.platform.launcher.core.EngineExecutionOrchestrator.execute(EngineExecutionOrchestrator.java:127)
+	at org.junit.platform.launcher.core.EngineExecutionOrchestrator.execute(EngineExecutionOrchestrator.java:90)
+	at org.junit.platform.launcher.core.EngineExecutionOrchestrator.lambda$execute$0(EngineExecutionOrchestrator.java:55)
+	at org.junit.platform.launcher.core.EngineExecutionOrchestrator.withInterceptedStreams(EngineExecutionOrchestrator.java:102)
+	at org.junit.platform.launcher.core.EngineExecutionOrchestrator.execute(EngineExecutionOrchestrator.java:54)
+	at org.junit.platform.launcher.core.DefaultLauncher.execute(DefaultLauncher.java:114)
+	at org.junit.platform.launcher.core.DefaultLauncher.execute(DefaultLauncher.java:86)
+	at org.junit.platform.launcher.core.DefaultLauncherSession$DelegatingLauncher.execute(DefaultLauncherSession.java:86)
+	at org.junit.platform.launcher.core.SessionPerRequestLauncher.execute(SessionPerRequestLauncher.java:53)
+	at com.intellij.junit5.JUnit5IdeaTestRunner.startRunnerWithArgs(JUnit5IdeaTestRunner.java:57)
+	at com.intellij.rt.junit.IdeaTestRunner$Repeater$1.execute(IdeaTestRunner.java:38)
+	at com.intellij.rt.execution.junit.TestsRepeater.repeat(TestsRepeater.java:11)
+	at com.intellij.rt.junit.IdeaTestRunner$Repeater.startRunnerWithArgs(IdeaTestRunner.java:35)
+	at com.intellij.rt.junit.JUnitStarter.prepareStreamsAndStart(JUnitStarter.java:232)
+	at com.intellij.rt.junit.JUnitStarter.main(JUnitStarter.java:55)
+Caused by: org.springframework.beans.factory.UnsatisfiedDependencyException: Error creating bean with name 'todoController': Unsatisfied dependency expressed through field 'beanMapper': No qualifying bean of type 'com.github.dozermapper.core.Mapper' available: expected at least 1 bean which qualifies as autowire candidate. Dependency annotations: {@org.springframework.beans.factory.annotation.Autowired(required=true)}
+	at org.springframework.beans.factory.annotation.AutowiredAnnotationBeanPostProcessor$AutowiredFieldElement.resolveFieldValue(AutowiredAnnotationBeanPostProcessor.java:713)
+	at org.springframework.beans.factory.annotation.AutowiredAnnotationBeanPostProcessor$AutowiredFieldElement.inject(AutowiredAnnotationBeanPostProcessor.java:693)
+	at org.springframework.beans.factory.annotation.InjectionMetadata.inject(InjectionMetadata.java:133)
+	at org.springframework.beans.factory.annotation.AutowiredAnnotationBeanPostProcessor.postProcessProperties(AutowiredAnnotationBeanPostProcessor.java:482)
+	at org.springframework.beans.factory.support.AbstractAutowireCapableBeanFactory.populateBean(AbstractAutowireCapableBeanFactory.java:1416)
+	at org.springframework.beans.factory.support.AbstractAutowireCapableBeanFactory.doCreateBean(AbstractAutowireCapableBeanFactory.java:597)
+	at org.springframework.beans.factory.support.AbstractAutowireCapableBeanFactory.createBean(AbstractAutowireCapableBeanFactory.java:520)
+	at org.springframework.beans.factory.support.AbstractBeanFactory.lambda$doGetBean$0(AbstractBeanFactory.java:326)
+	at org.springframework.beans.factory.support.DefaultSingletonBeanRegistry.getSingleton(DefaultSingletonBeanRegistry.java:234)
+	at org.springframework.beans.factory.support.AbstractBeanFactory.doGetBean(AbstractBeanFactory.java:324)
+	at org.springframework.beans.factory.support.AbstractBeanFactory.getBean(AbstractBeanFactory.java:200)
+	at org.springframework.beans.factory.support.DefaultListableBeanFactory.preInstantiateSingletons(DefaultListableBeanFactory.java:973)
+	at org.springframework.context.support.AbstractApplicationContext.finishBeanFactoryInitialization(AbstractApplicationContext.java:917)
+	at org.springframework.context.support.AbstractApplicationContext.refresh(AbstractApplicationContext.java:584)
+	at org.springframework.boot.web.servlet.context.ServletWebServerApplicationContext.refresh(ServletWebServerApplicationContext.java:146)
+	at org.springframework.boot.SpringApplication.refresh(SpringApplication.java:732)
+	at org.springframework.boot.SpringApplication.refreshContext(SpringApplication.java:434)
+	at org.springframework.boot.SpringApplication.run(SpringApplication.java:310)
+	at org.springframework.boot.test.context.SpringBootContextLoader.lambda$loadContext$3(SpringBootContextLoader.java:137)
+	at org.springframework.util.function.ThrowingSupplier.get(ThrowingSupplier.java:58)
+	at org.springframework.util.function.ThrowingSupplier.get(ThrowingSupplier.java:46)
+	at org.springframework.boot.SpringApplication.withHook(SpringApplication.java:1388)
+	at org.springframework.boot.test.context.SpringBootContextLoader$ContextLoaderHook.run(SpringBootContextLoader.java:545)
+	at org.springframework.boot.test.context.SpringBootContextLoader.loadContext(SpringBootContextLoader.java:137)
+	at org.springframework.boot.test.context.SpringBootContextLoader.loadContext(SpringBootContextLoader.java:108)
+	at org.springframework.test.context.cache.DefaultCacheAwareContextLoaderDelegate.loadContextInternal(DefaultCacheAwareContextLoaderDelegate.java:184)
+	at org.springframework.test.context.cache.DefaultCacheAwareContextLoaderDelegate.loadContext(DefaultCacheAwareContextLoaderDelegate.java:118)
+	... 73 more
+Caused by: org.springframework.beans.factory.NoSuchBeanDefinitionException: No qualifying bean of type 'com.github.dozermapper.core.Mapper' available: expected at least 1 bean which qualifies as autowire candidate. Dependency annotations: {@org.springframework.beans.factory.annotation.Autowired(required=true)}
+	at org.springframework.beans.factory.support.DefaultListableBeanFactory.raiseNoMatchingBeanFound(DefaultListableBeanFactory.java:1824)
+	at org.springframework.beans.factory.support.DefaultListableBeanFactory.doResolveDependency(DefaultListableBeanFactory.java:1383)
+	at org.springframework.beans.factory.support.DefaultListableBeanFactory.resolveDependency(DefaultListableBeanFactory.java:1337)
+	at org.springframework.beans.factory.annotation.AutowiredAnnotationBeanPostProcessor$AutowiredFieldElement.resolveFieldValue(AutowiredAnnotationBeanPostProcessor.java:710)
+	... 99 more
+----
+
+=== jarファイルの作成と実行
+
+mavenの「package」でtargetフォルダ配下にjarファイルが作成される。
+
+image::https://github.com/birdmoon14/doc/blob/main/docs/buildenv/springboot/images/restapi-008.png?raw=true[]
+
+コマンドプロンプトで以下のコマンドで実行できる。 +
+`java -jar tutorial-0.0.1-SNAPSHOT.jar`
+
+=== REST API Clientによる動作確認
+
+CAUTION: DozerBeanMapperの問題で止まっている…
+
+== 戻る
+link:https://birdmoon14.github.io/doc/index.html[TOP PAGE]
