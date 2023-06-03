@@ -1,0 +1,155 @@
+:toc: left
+:toclevels: 3
+:toc-title: 目次
+:sectnums:
+
+:icons: font
+:sectanchors:
+:sectlinks:
+
+= SpringBootチュートリアル
+
+== プロジェクト作成
+
+image::https://github.com/birdmoon14/doc/blob/main/docs/buildenv/springboot/images/intelliJ-011.png?raw=true[]
+
+New Projectを押下すると、プロジェクト作成の画面が表示される +
+「Spring Initializr」を選択し、画像の通り値を入力する
+
+image::https://github.com/birdmoon14/doc/blob/main/docs/buildenv/springboot/images/intelliJ-012.png?raw=true[]
+
+次の画面で、利用するDependenciesを設定する +
+画像の4つを選択してcreate
+
+image::https://github.com/birdmoon14/doc/blob/main/docs/buildenv/springboot/images/intelliJ-013.png?raw=true[]
+
+プロジェクトが作成された
+
+== プロジェクト実行
+
+image::https://github.com/birdmoon14/doc/blob/main/docs/buildenv/springboot/images/intelliJ-014.png?raw=true[]
+
+メニューバーの「Run」から「Run 'TutorialApplication'」を実行する（Shift+F10でもOK）
+
+image::https://github.com/birdmoon14/doc/blob/main/docs/buildenv/springboot/images/intelliJ-015.png?raw=true[]
+
+mvn spring-boot:run が実行され、「Started TutorialApplication」が表示された +
+プロジェクトが正しく作成されていることが確認できた
+
+== REST APIの作成
+
+=== REST API Clientの準備
+
+Google Chrome拡張機能「TalendAPI Tester - Free Edition」を使用する +
+当たり前だがEdgeでも動くので筆者はEdgeにインストールした
+
+[caption="Ruby公式サイト",link=https://chrome.google.com/webstore/detail/talend-api-tester-free-ed/aejoelaoggembcahagimdiliamlcdmfm?hl=ja]
+image::https://github.com/birdmoon14/doc/blob/main/docs/buildenv/springboot/images/restapi-001.png?raw=true[]
+
+=== pom.xmlの設定
+
+Starterをpom.xmlに設定する
+
+ * dozer-spring-boot-starter
+
+   Spring BootでDozerを利用するためのスターター +
+   DozerとはJava Beanのマッピング機能ライブラリ（BeanからBeanに再帰的に値をコピーする）
+
+ * mybatis-spring-boot-starter-test
+
+   Spring BootでMyBatisを利用するためのスターター +
+   MyBatisとはJavaAPからデータベースを扱う処理を簡略化する「O/R Mapper」の機能を持つ +
+   本手順で作成したプロジェクトには既に設定されている
+
+.pom.xml
+[source,xml]
+----
+        <dependency>
+            <groupId>org.mybatis.spring.boot</groupId>
+            <artifactId>mybatis-spring-boot-starter</artifactId>
+            <version>3.0.0</version>
+        </dependency>
+        <!-- ここから追加 -->
+        <dependency>
+            <groupId>org.github.dozermapper</groupId>
+            <artifactId>dozer-spring-boot-starter</artifactId>
+            <version>6.5.0</version>
+        </dependency>
+        <!-- ここまで追加 -->
+----
+
+=== application.ymlの設定
+
+Spring Boot auto-configurationで生成されるBeanの設定を変更する +
+MyBatisの「mapUnderscoreToCamelCase」をtrueにすることで、スネークケース形式のカラム名をキャメルケース形式に自動変換する（"todo_list"→"todoList"） +
+
+image::https://github.com/birdmoon14/doc/blob/main/docs/buildenv/springboot/images/restapi-003.png?raw=true[]
+image::https://github.com/birdmoon14/doc/blob/main/docs/buildenv/springboot/images/restapi-004.png?raw=true[]
+
+YAML形式で定義したいので、application.propertiesをapplication.ymlに変換する
+
+=== パッケージ・ソースフォルダの作成
+
+以下のパッケージを作成する
+
+|===
+
+| フォルダ | パッケージ名 | 内容
+
+| tutorial/src/main/java
+| com.example.tutorial.todo
+| REST APIのクラスを格納するパッケージ
+
+| tutorial/src/main/java
+| com.example.tutorial.common.exception
+| 例外処理のクラスを格納するパッケージ
+
+| tutorial/src/test/java
+| com.example.tutorial.todo
+| 単体テストのクラスを格納するパッケージ
+
+|===
+
+テスト用ソースフォルダを作成する
+
+.最終的な構成
+image::https://github.com/birdmoon14/doc/blob/main/docs/buildenv/springboot/images/restapi-005.png?raw=true[]
+
+=== ToDoクラスの作成
+
+.com.example.tutorial.todo.Todo.java
+[source,java]
+----
+package com.example.tutorial.todo;
+
+import lombok.AllArgsConstructor;
+import lombok.Getter;
+import lombok.NoArgsConstructor;
+import lombok.Setter;
+
+import java.io.Serializable;
+import java.time.LocalDateTime;
+
+@Getter
+@Setter
+@AllArgsConstructor
+@NoArgsConstructor
+public class Todo implements Serializable {
+
+    private static final long serialVersionUID = 1L;
+
+    private Long todoId;
+
+    private String todoTitle;
+
+    private boolean finished;
+
+    private LocalDateTime createdAt;
+
+}
+----
+
+Getter,Setter,すべてのフィールドを引数に持つコンストラクタ、デフォルトコンストラクタを自動生成する
+
+
+=== ToDoResourceクラスの作成

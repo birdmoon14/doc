@@ -1,17 +1,31 @@
-:toc: left
-:toclevels: 2
-:toc-title: 目次
-:sectnums:
+:lang: ja
 
-:icons: font
+= 技術系メモ
 
-= 作業メモ
+== 作業ログ
+[cols="5,5,15a"]
+|===
+| 期間 | 作業概要 | 作業メモ
 
-== 環境構築
-- link:buildenv/howtolog/githubpages.html[GitHub Pagesでの作業ログ環境]
-- link:buildenv/springboot/intelliJ.html[intelliJ環境構築]
+| 2023.4.21 - 2023.4.27 
+| 作業環境の構築 
+| * link:buildenv/howtolog/githubpages.html[GitHub Pagesでの作業ログ環境]
+  * link:buildenv/springboot/intelliJ.html[intelliJ環境構築]
+
+| 2023.4.27 - 2023.5.12
+| SpringBootチュートリアル
+| * link:buildenv/springboot/springboottutorial.html[SpringBootチュートリアル]
+
+| 2023.5.13 - now
+| AWSクラウドアプリケーションチュートリアル
+| * link:buildenv/awsaptutorial/awsaptutorial.html[AWSクラウドアプリケーションチュートリアル]
+
+|===
+
+== その他
+
+* link:buildenv/howtolog/asciidoccs.html[AsciiDoc個人的チートシート]
+
+
 // TODO: VScodeおすすめ拡張機能（作成中）
 // TODO: AsciiDoc執筆ノウハウ（作成中）
-
-== チュートリアル実施
-- SpringBootチュートリアル

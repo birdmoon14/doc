@@ -1,0 +1,52 @@
+:toc: left
+:toc-title: AsciiDocチートシート
+:toc-level: 3
+
+= AsciiDocの個人的なチートシート
+
+すぐ忘れるのでよく使うものや困ったときの対処法をメモする。
+
+== 基本編
+
+=== 改行
+
+[%collapsible]
+====
+改行は行末に `+` を付ける
+
+....
+１行目 +
+２行目
+....
+
+１行目 +
+２行目
+====
+
+=== ソースコード
+
+==== インラインコード
+
+インラインコードは``で囲む（前後に改行か半角スペースが必要）
+
+
+==== ブロックコード
+
+=== 折りたたみ
+
+[%collapsible]
+====
+
+`[%collapsible]` +
+`====` +
+`折りたたみたい内容` +
+`====`
+
+====
+
+
+== 困ったこと編
+
+
+== 参考
+* link:https://takumon.github.io/asciidoc-syntax-quick-reference-japanese-translation/[Asciidoctor文法クイックリファレンス（日本語版）]
