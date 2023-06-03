@@ -17,4 +17,4 @@ include::howtoasciidoc.adoc[leveloffset=+1]
 include::deploypages.adoc[leveloffset=+1]
 
 == 戻る
-link:index.html[TOP PAGE]
+link:https://birdmoon14.github.io/doc/index.html[TOP PAGE]
