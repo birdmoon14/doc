@@ -1,0 +1,160 @@
+:toc: left
+:toc-title: 目次
+:toc-level: 3
+
+= AWS ECS上にSpringアプリケーションを構築する
+
+== 基礎知識
+
+=== AWS ECSとは
+
+* AWS ECS … Amazon Elastic Container Service
+* クラスタ単位でDockerコンテナを高速に実行・停止・管理できる
+* スケーラブルも簡単
+
+=== Dockerコンテナとは
+
+* Docker … アプリケーションを素早く構築、テスト、デプロイできるソフトウェアプラットフォーム。コンテナに対してのOS。
+* コンテナ … 標準化されたユニット。Dockerはコンテナにソフトウェアをパッケージ化する。
+
+== アプリケーションの構築
+
+=== VPC環境の構築
+
+==== ElasticIPアドレスの取得
+
+マネージドコンソールで「Elastic IPアドレス」を開く
+
+image::https://github.com/birdmoon14/doc/blob/main/docs/buildenv/awsaptutorial/images/awsaptutorial-001.png?raw=true[]
+
+「Elastic IPアドレスの割り当て」を押下する
+
+image::https://github.com/birdmoon14/doc/blob/main/docs/buildenv/awsaptutorial/images/awsaptutorial-002.png?raw=true[]
+
+「割り当て」を押下すると、IPアドレスが割り当てられる
+
+==== VPC・サブネット・ルートテーブル・インターネットゲートウェイ・NATゲートウェイの作成
+
+マネージドコンソールで「VPC」を開く
+
+image::https://github.com/birdmoon14/doc/blob/main/docs/buildenv/awsaptutorial/images/awsaptutorial-003.png?raw=true[]
+
+「VPCの作成」から以下の設定でVPCを作成する
+
+|====
+| 設定項目 | 設定値
+| 作成するリソース | VPCなど
+| 名前タグ | aws-ap-tutorial
+| IPv4 CIDRブロック | 10.0.0.0/16
+| IPv6 CIDRブロック | IPv6 CIDRブロックなし
+| テナンシー | デフォルト
+| アベイラビリティゾーンの数 | 2 ※可用性のために2つ以上を推奨
+| パブリックサブネットの数 | 2 (0 or 2)
+| プライベートサブネットの数 | 2 (0 or 2 or 4)
+| NATゲートウェイ | AZごとに1 (なし or 1AZ内 or AZごとに1)
+| VPCエンドポイント | S3ゲートウェイ (なし or S3ゲートウェイ) ※料金発生するため注意
+| DNSオプション | DNSホスト名、DNS解決を有効化
+|====
+
+作成すると以下の通り一式を作成してくれる。 +
+便利になった…（数か月前と仕様が違いすぎて驚いた） +
+IPアドレスなど自分で指定したい場合は個別に作成が必要。
+
+image::https://github.com/birdmoon14/doc/blob/main/docs/buildenv/awsaptutorial/images/awsaptutorial-004.png?raw=true[]
+
+ここまででこの構成ができた。
+
+image::https://github.com/birdmoon14/doc/blob/main/docs/buildenv/awsaptutorial/images/awsaptutorial-005.png?raw=true[]
+
+=== ALBの作成
+
+インターネットアクセスを受け付けるパブリックサブネット用のLBとVPC内のアクセスのみを受け付けるプライベートサブネット用のLBの2つを作成する。
+
+「EC2」の「ロードバランサー」から、「ロードバランサーの作成」を行う。 +
+作成するロードバランサーの種類を選択する（今回はALB(Application Load Balancer)）。
+
+.パブリックサブネット向けALBの設定
+|====
+| 設定項目 | 設定値
+| ロードバランサー名 | aws-ap-tutorial-alb-public
+| スキーム | インターネット向け
+| IPアドレスタイプ | IPv4
+| ネットワークマッピング | aws-ap-tutorial-vpcを選択し、２つのAZの各パブリックサブネットをマッピング対象とする
+| セキュリティグループ | aws-ap-tutorial-alb-public(新規作成)
+| リスナー | HTTP:80 ターゲットグループ:aws-ap-tutorial-alb-public(新規作成)
+|====
+
+.プライベートサブネット向けALBの設定
+|====
+| 設定項目 | 設定値
+| ロードバランサー名 | aws-ap-tutorial-alb-private
+| スキーム | 内部
+| IPアドレスタイプ | IPv4
+| ネットワークマッピング | aws-ap-tutorial-vpcを選択し、２つのAZの各プライベートサブネットをマッピング対象とする
+| セキュリティグループ | aws-ap-tutorial-alb-private(新規作成)
+| リスナー | HTTP:80 ターゲットグループ:aws-ap-tutorial-alb-private(新規作成)
+|====
+
+作成したALBに対してパスベースのルーティング設定を行う。 +
+作成したALBのリスナータブのルールを選択する。 +
+「ルール」の画面で「ルールの管理」を選択し、「＋」タブを開く。 +
+「ルールの挿入」で下図の通り設定する。(privateも同様)
+
+image::https://github.com/birdmoon14/doc/blob/main/docs/buildenv/awsaptutorial/images/awsaptutorial-006.png?raw=true[]
+
+
+==== セキュリティグループの作成
+
+ALB用にセキュリティグループを作成する。
+
+.パブリックサブネット向けALBの設定
+|====
+| 設定項目 | 設定値
+| セキュリティグループ名 | aws-ap-tutorial-alb-public
+| インバウンドルール | HTTP TCP PORT:80 送信先:カスタム 0.0.0.0/0
+|====
+
+.プライベートサブネット向けALBの設定
+|====
+| 設定項目 | 設定値
+| セキュリティグループ名 | aws-ap-tutorial-alb-private
+| インバウンドルール | HTTP TCP PORT:80 送信先:カスタム 10.0.0.0/16
+|====
+
+==== ターゲットグループの作成
+
+ALBルーティング設定用にターゲットグループを作成する。
+
+.パブリックサブネット向けALBの設定
+|====
+| 設定項目 | 設定値
+| ターゲットタイプ | インスタンス
+| ターゲットグループ名 | aws-ap-tutorial-alb-public
+| プロトコル・ポート | HTTP:80
+| VPC | aws-ap-tutorial-vpc
+| プロトコルバージョン | HTTP1
+| ヘルスチェック | HTTP /aws-ap-tutorial/index.html
+|====
+
+.プライベートサブネット向けALBの設定
+|====
+| 設定項目 | 設定値
+| ターゲットタイプ | インスタンス
+| ターゲットグループ名 | aws-ap-tutorial-alb-private
+| プロトコル・ポート | HTTP:80
+| VPC | aws-ap-tutorial-vpc
+| プロトコルバージョン | HTTP1
+| ヘルスチェック | HTTP /aws-ap-tutorial/index.html
+|====
+
+=== Springを使ったコンテナアプリケーションの実装
+
+=== ECSクラスタの作成
+
+=== ECSタスクの定義
+
+=== ECSサービスの実行
+
+== 参考
+* https://news.mynavi.jp/techplus/article/techp4354/
+* https://aws.amazon.com/jp/docker/

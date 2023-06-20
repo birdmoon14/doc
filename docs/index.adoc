@@ -19,6 +19,7 @@
 | 2023.5.13 - now
 | AWSクラウドアプリケーションチュートリアル
 | * link:buildenv/awsaptutorial/awsaptutorial.html[AWSクラウドアプリケーションチュートリアル]
+Springを使用したコンテナアプリケーションの実装に着手中
 
 |===
 

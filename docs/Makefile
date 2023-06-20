@@ -16,6 +16,7 @@ $(DEST_DIR)/buildenv/howtolog/githubpages.html \
 $(DEST_DIR)/buildenv/howtolog/asciidoccs.html \
 $(DEST_DIR)/buildenv/springboot/intelliJ.html \
 $(DEST_DIR)/buildenv/springboot/springboottutorial.html \
+$(DEST_DIR)/buildenv/awsaptutorial/awsaptutorial.html \
 
 .PHONY: adoc mkdir_and_copy
 
